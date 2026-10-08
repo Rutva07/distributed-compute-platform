@@ -9,11 +9,11 @@ Go-based distributed job execution with **PostgreSQL, Redis Streams, REST, WebSo
 ```text
                         POST /v1/jobs         GET /v1/jobs/{id}
                               |                     ^
-                         +---------+               |
+                         +---------+                |
                          | Go API  |------ WebSocket updates
-                         +----+----+               ^
-                              |                      | Redis Pub/Sub + DB polling
-                              v                      |
+                         +----+----+                ^
+                              |                     | Redis Pub/Sub + DB polling
+                              v                     |
                         +------------+              |
                         | PostgreSQL | <------------+---------+
                         | jobs       |                         |
