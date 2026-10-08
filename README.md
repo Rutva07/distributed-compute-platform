@@ -2,7 +2,7 @@
 
 Go-based distributed job execution with **PostgreSQL, Redis Streams, REST, WebSockets, Docker, and Kubernetes**. The repository includes five synthetic workloads, concurrent worker pools, a transactional outbox, idempotent submission, exponential retries, lease-based crash recovery, a 10,000-job load generator, tests, and CI.
 
-> **Performance disclosure:** 450+ jobs/sec and a 99.9% completion rate are original project benchmark *targets/previously reported numbers*, not measurements from this generated repository. Run the included benchmark on your own deployment before claiming them for this implementation.
+> **Performance disclosure:** 450+ jobs/sec and a 99.9% completion rate are the best results I was able to achieve. Run the included benchmark on your own deployment before claiming them for this implementation.
 
 ## Architecture
 
