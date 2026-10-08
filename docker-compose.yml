@@ -1,0 +1,87 @@
+name: distributed-compute
+x-app-env: &app-env
+  DATABASE_URL: ${DATABASE_URL:-postgres://compute:compute@postgres:5432/compute?sslmode=disable}
+  REDIS_ADDR: ${REDIS_ADDR:-redis:6379}
+  REDIS_STREAM: compute:jobs
+  REDIS_GROUP: compute-workers
+  DB_MAX_CONNS: ${DB_MAX_CONNS:-12}
+  JOB_LEASE_SECONDS: "120"
+  MAX_JOB_SECONDS: "30"
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-compute}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-compute}
+      POSTGRES_DB: ${POSTGRES_DB:-compute}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U compute -d compute"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args: {SERVICE: migrate}
+    environment: *app-env
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args: {SERVICE: api}
+    environment: *app-env
+    ports:
+      - "8080:8080"
+    depends_on:
+      redis: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/health/ready"]
+      interval: 5s
+      timeout: 4s
+      retries: 12
+  dispatcher:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args: {SERVICE: dispatcher}
+    environment: *app-env
+    depends_on:
+      redis: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    restart: unless-stopped
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args: {SERVICE: worker}
+    environment:
+      <<: *app-env
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-16}
+    depends_on:
+      redis: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    restart: unless-stopped
+volumes:
+  pgdata:
+  redisdata:

@@ -1,0 +1,6 @@
+.git
+.env
+*.md
+k8s
+scripts
+**/*_test.go

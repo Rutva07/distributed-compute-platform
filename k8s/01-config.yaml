@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: compute-config
+  namespace: compute
+data:
+  REDIS_ADDR: redis:6379
+  REDIS_STREAM: compute:jobs
+  REDIS_GROUP: compute-workers
+  JOB_LEASE_SECONDS: "120"
+  MAX_JOB_SECONDS: "30"
+  WORKER_CONCURRENCY: "16"
+  DISPATCH_BATCH_SIZE: "100"
+  DISPATCH_POLL_MS: "100"
+  HTTP_ADDR: ":8080"
+---
+# Development defaults only: replace before production deployment.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: compute-secrets
+  namespace: compute
+type: Opaque
+stringData:
+  POSTGRES_USER: compute
+  POSTGRES_PASSWORD: compute
+  POSTGRES_DB: compute
+  DATABASE_URL: postgres://compute:compute@postgres:5432/compute?sslmode=disable

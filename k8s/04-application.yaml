@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: compute-api
+  namespace: compute
+spec:
+  selector: {app: compute-api}
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compute-api
+  namespace: compute
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: compute-api}
+  template:
+    metadata:
+      labels: {app: compute-api}
+    spec:
+      containers:
+        - name: api
+          image: compute-api:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef: {name: compute-config}
+            - secretRef: {name: compute-secrets}
+          readinessProbe:
+            httpGet: {path: /health/ready, port: 8080}
+            initialDelaySeconds: 4
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /health/live, port: 8080}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 100m, memory: 64Mi}
+            limits: {cpu: "1", memory: 256Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compute-dispatcher
+  namespace: compute
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: compute-dispatcher}
+  template:
+    metadata:
+      labels: {app: compute-dispatcher}
+    spec:
+      containers:
+        - name: dispatcher
+          image: compute-dispatcher:local
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: {name: compute-config}
+            - secretRef: {name: compute-secrets}
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compute-worker
+  namespace: compute
+spec:
+  replicas: 3
+  selector:
+    matchLabels: {app: compute-worker}
+  template:
+    metadata:
+      labels: {app: compute-worker}
+    spec:
+      terminationGracePeriodSeconds: 40
+      containers:
+        - name: worker
+          image: compute-worker:local
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: {name: compute-config}
+            - secretRef: {name: compute-secrets}
+          resources:
+            requests: {cpu: 250m, memory: 128Mi}
+            limits: {cpu: "2", memory: 512Mi}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: compute-worker-hpa
+  namespace: compute
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: compute-worker
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65
